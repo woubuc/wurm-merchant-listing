@@ -1,0 +1,4 @@
+Manifest-Version: 1.0
+Class-Path: be.woubuc.wurmunlimited.server.merchantlisting.MerchantListingMod
+Main-Class: be.woubuc.wurmunlimited.server.merchantlisting.MerchantListingMod
+

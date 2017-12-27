@@ -1,0 +1,11 @@
+*.class
+*.jar
+*.iml
+*.dev.properties
+*.afdesign
+
+.idea
+dist
+target
+lib
+out
