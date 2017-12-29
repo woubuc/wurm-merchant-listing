@@ -7,7 +7,7 @@
 
     <style type="text/css">
         * { margin:0; padding:0; outline:none; border:none; box-sizing:border-box; }
-        html, body { height:100%; }
+        html, body { min-height:100%; }
         body { padding:20px 0; font-family:arial,sans-serif; font-size:15px; }
 
         /* https://uigradients.com/#Scooter */
@@ -28,8 +28,16 @@
 
         table { width:100%; margin:15px 0; border-collapse:collapse; }
 
-        td, th { width:0; padding:5px 8px; text-align:right; font-size:14px; white-space:pre; }
-        td.name, th.name { text-align:left; width:auto; white-space:normal; }
+        td, th { width:60px; padding:6px 10px; text-align:left; font-size:12px; white-space:pre; }
+
+        td.name, th.name { width:auto; white-space:normal; }
+        td.name { font-size:14px; }
+
+        td.num, th.num { text-align:right; }
+
+        td.name.rare-1 { color:#4299E0; } /* Rare */
+        td.name.rare-2 { color:#20D7D7; } /* Supreme */
+        td.name.rare-3 { color:#FF00FF; } /* Fantastic */
 
         tr:nth-child(even) { background:#f4f4f4; }
         tr.title { background:none; }
@@ -46,7 +54,7 @@
         <h1>{{name}}</h1>
 
         {{#village}}
-        <p>Located in {{village}} ({{x}}x {{y}}y)</p>
+        <p>Located at {{village}} ({{x}}x {{y}}y)</p>
         {{/village}}
 
         {{^village}}
@@ -56,9 +64,9 @@
         <table>
             <tr class="title">
                 <th class="name">Name</th>
-                <th>QL</th>
-                <th>DMG</th>
-                <th>Weight</th>
+                <th class="num">QL</th>
+                <th class="num">DMG</th>
+                <th class="num">Weight</th>
                 <th>Price</th>
             </tr>
 
@@ -67,12 +75,12 @@
             {{/inventory.isEmpty}}
 
             {{#inventory}}
-            <tr>
-                <td class="name">{{name}} {{#description}}<span class="description">({{description}})</span>{{/description}}</td>
+            <tr class="{{templateId}}">
+                <td class="name rare-{{rarity}}">{{name}} {{#description}}<span class="description">({{description}})</span>{{/description}}</td>
                 <td class="num">{{ql}}</td>
                 <td class="num">{{dmg}}</td>
                 <td class="num">{{weight}}</td>
-                <td class="num">{{price}}</td>
+                <td class="mono">{{price}}</td>
             </tr>
             {{/inventory}}
 

@@ -6,6 +6,8 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.wurmonline.server.creatures.Creature;
 import com.wurmonline.server.creatures.Creatures;
+import com.wurmonline.server.economy.Economy;
+import com.wurmonline.server.economy.Shop;
 import com.wurmonline.server.items.Item;
 import org.apache.commons.io.FilenameUtils;
 import org.hashids.Hashids;
@@ -16,16 +18,27 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.util.*;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
+
+import static be.woubuc.wurmunlimited.server.merchantlisting.Util.formatWeight;
 
 public class RequestHandler implements HttpHandler {
 	
-	private final static Logger logger = Logger.getLogger(RequestHandler.class.getName());
-	
+	private final DecimalFormat priceFormat;
+	private final DecimalFormat numberFormat;
 	private final Hashids hashids;
 	
 	RequestHandler(String salt) {
 		hashids = new Hashids(salt);
+		
+		final DecimalFormatSymbols symbols = new DecimalFormatSymbols();
+		symbols.setDecimalSeparator(',');
+		priceFormat = new DecimalFormat("##0.00##", symbols);
+		numberFormat = new DecimalFormat("#0.00", symbols);
 	}
 	
 	@Override
@@ -45,17 +58,20 @@ public class RequestHandler implements HttpHandler {
 		Creature merchant = null;
 		try {
 			merchant = Creatures.getInstance().getCreature(wurmId);
-			if (!merchant.isSalesman()) throw new RuntimeException(); // Throw and catch to return a 404
+			if (!merchant.isNpcTrader()) throw new RuntimeException(); // Throw and catch to return a 404
 		} catch (Exception e) {
 			responseData = "Merchant not found";
 			responseCode = 404;
 		}
 		
+		// Get shop
+		Shop shop = Economy.getEconomy().getShop(merchant);
+		
 		if (merchant != null) {
 			// Check which data type we should send (default to a HTML page)
 			switch (ext) {
 				case "json":
-					responseData = getInventoryData(hashid, merchant).toJSONString();
+					responseData = getInventoryData(hashid, merchant, shop).toJSONString();
 					contentType = "application/json";
 					break;
 				default:
@@ -63,7 +79,7 @@ public class RequestHandler implements HttpHandler {
 					if (template == null) throw new RuntimeException("Template not found");
 					
 					InputStreamReader reader = new InputStreamReader(template);
-					responseData = Mustache.compiler().compile(reader).execute(getInventoryData(hashid, merchant));
+					responseData = Mustache.compiler().compile(reader).execute(getInventoryData(hashid, merchant, shop));
 					
 					contentType = "text/html";
 					break;
@@ -83,14 +99,21 @@ public class RequestHandler implements HttpHandler {
 	
 	/**
 	 * Gets a data object containing all inventory data from the merchant
-	 * @param hashid The entered hashID
-	 * @param merchant The merchant creature
+	 * @param  hashid    The entered hashID
+	 * @param  merchant  The merchant creature
+	 * @param  shop      The shop associated with the merchant
 	 * @return The inventory data object
 	 */
 	@SuppressWarnings("unchecked")
-	private JSONObject getInventoryData(String hashid, Creature merchant) {
+	private JSONObject getInventoryData(String hashid, Creature merchant, Shop shop) {
 		JSONObject data = new JSONObject();
 		JSONArray items = new JSONArray();
+		
+		Logger logger = Logger.getLogger("test");
+		List<Item> inventory = new ArrayList(merchant.getInventory().getItems());
+		logger.info(inventory.toString());
+		inventory.sort((a, b) -> (a.getName().compareTo(b.getName())));
+		logger.info(inventory.toString());
 		
 		data.put("id", hashid);
 		data.put("name", merchant.getName().substring(9));
@@ -104,32 +127,26 @@ public class RequestHandler implements HttpHandler {
 		data.put("x", (int) merchant.getPosX());
 		data.put("y", (int) merchant.getPosY());
 		
-		for (Item item : merchant.getInventory().getItems()) {
+		for (Item item : inventory) {
 			if (item.isCoin()) continue; // Coins should not show up in merchant inventory
 			
 			JSONObject itemData = new JSONObject();
 			
-			// Capitalise name cause it's prettier that way
-			StringBuilder name = new StringBuilder();
-			for (String word : item.getName().split("\\s")) {
-				name.append(word.substring(0, 1).toUpperCase());
-				name.append(word.substring(1));
-				name.append(" ");
-			}
-			
-			itemData.put("name", name.toString().trim());
+			itemData.put("name", Util.formatItemName(item));
 			itemData.put("description", item.getDescription().length() == 0 ? null : item.getDescription());
+			itemData.put("templateId", item.getTemplateId());
 			
-			itemData.put("ql", item.getCurrentQualityLevel());
-			itemData.put("dmg", item.getDamage());
+			itemData.put("rarity", item.getRarity());
+			itemData.put("ql", numberFormat.format(item.getCurrentQualityLevel()));
+			itemData.put("dmg", numberFormat.format(item.getDamage()));
 			
-			itemData.put("weight", formatWeight(item.getWeightGrams(true)));
+			itemData.put("weight", numberFormat.format(item.getWeightGrams(true) / 1000.0));
 			itemData.put("rawWeight", item.getWeightGrams(true));
 			
 			// Use the set price or fall back to the item's value
-			long price = item.getPrice();
-			if (price == 0) price = item.getValue();
-			itemData.put("price", formatPrice(price));
+			double price = item.getPrice();
+			if (price == 0) price = Math.ceil(item.getValue() * shop.getPriceModifier());
+			itemData.put("price", priceFormat.format(price / 10000));
 			itemData.put("rawPrice", price);
 			
 			items.add(itemData);
@@ -137,46 +154,5 @@ public class RequestHandler implements HttpHandler {
 		data.put("inventory", items);
 		
 		return data;
-	}
-	
-	/**
-	 * Takes the weight of an item and formats it in a readable format
-	 * @param weight The weight
-	 * @return The formatted weight string
-	 */
-	private String formatWeight(long weight) {
-		weight = weight / 10;
-		
-		int kg = 0;
-		while (weight >= 100) {
-			weight -= 100;
-			kg++;
-		}
-		
-		return kg + "." + (weight < 10 ? "0" : "") + weight;
-	}
-	
-	/**
-	 * Takes the price of an item and formats it in a readable format
-	 * @param price The price
-	 * @return The formatted price string
-	 */
-	private String formatPrice(long price) {
-		
-		int silver = 0;
-		int iron = 0;
-		
-		while (price >= 1e5) {
-			price -= 1e5;
-			silver += 10;
-		}
-		
-		while (price >= 1e4) {
-			price -= 1e4;
-			silver += 1;
-		}
-		
-		iron = (int) price;
-		return silver + "." + (iron < 10 ? "0" : "") + iron;
 	}
 }
