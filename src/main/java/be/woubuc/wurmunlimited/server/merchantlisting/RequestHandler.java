@@ -10,7 +10,6 @@ import com.wurmonline.server.economy.Economy;
 import com.wurmonline.server.economy.Shop;
 import com.wurmonline.server.items.Item;
 import org.apache.commons.io.FilenameUtils;
-import org.hashids.Hashids;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
@@ -20,21 +19,16 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
-
-import static be.woubuc.wurmunlimited.server.merchantlisting.Util.formatWeight;
 
 public class RequestHandler implements HttpHandler {
 	
 	private final DecimalFormat priceFormat;
 	private final DecimalFormat numberFormat;
-	private final Hashids hashids;
 	
-	RequestHandler(String salt) {
-		hashids = new Hashids(salt);
-		
+	RequestHandler() {
 		final DecimalFormatSymbols symbols = new DecimalFormatSymbols();
 		symbols.setDecimalSeparator(',');
 		priceFormat = new DecimalFormat("##0.00##", symbols);
@@ -47,7 +41,7 @@ public class RequestHandler implements HttpHandler {
 		final String hashid = FilenameUtils.getBaseName(url);
 		final String ext = FilenameUtils.getExtension(url);
 		
-		final long wurmId = hashids.decode(hashid)[0];
+		final long wurmId = MerchantListingMod.hashids.decode(hashid)[0];
 		
 		// Prepare response
 		String responseData = "";
@@ -145,7 +139,8 @@ public class RequestHandler implements HttpHandler {
 			
 			// Use the set price or fall back to the item's value
 			double price = item.getPrice();
-			if (price == 0) price = Math.ceil(item.getValue() * shop.getPriceModifier());
+			if (price == 0) price = Math.round(item.getValue() * shop.getPriceModifier());
+			if (price < 2) price = 2;
 			itemData.put("price", priceFormat.format(price / 10000));
 			itemData.put("rawPrice", price);
 			
