@@ -3,6 +3,7 @@ package be.woubuc.wurmunlimited.server.merchantlisting;
 import com.wurmonline.server.behaviours.Action;
 import com.wurmonline.server.behaviours.ActionEntry;
 import com.wurmonline.server.creatures.Creature;
+import com.wurmonline.server.items.Item;
 import com.wurmonline.server.players.Player;
 import org.gotti.wurmunlimited.modsupport.actions.*;
 
@@ -45,6 +46,15 @@ public class GetListingAction implements ModAction, ActionPerformer, BehaviourPr
 	
 	@Override
 	public List<ActionEntry> getBehavioursFor(Creature performer, Creature target) {
+		if (performer instanceof Player && target.isNpcTrader()) {
+			return Arrays.asList(actionEntry);
+		}
+		
+		return null;
+	}
+	
+	@Override
+	public List<ActionEntry> getBehavioursFor(Creature performer, Item subject, Creature target) {
 		if (performer instanceof Player && target.isNpcTrader()) {
 			return Arrays.asList(actionEntry);
 		}
