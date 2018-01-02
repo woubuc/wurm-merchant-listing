@@ -103,11 +103,8 @@ public class RequestHandler implements HttpHandler {
 		JSONObject data = new JSONObject();
 		JSONArray items = new JSONArray();
 		
-		Logger logger = Logger.getLogger("test");
 		List<Item> inventory = new ArrayList(merchant.getInventory().getItems());
-		logger.info(inventory.toString());
 		inventory.sort((a, b) -> (a.getName().compareTo(b.getName())));
-		logger.info(inventory.toString());
 		
 		data.put("id", hashid);
 		data.put("name", merchant.getName().substring(9));
