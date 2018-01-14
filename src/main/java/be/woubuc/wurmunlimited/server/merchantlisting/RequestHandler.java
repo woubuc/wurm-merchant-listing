@@ -128,7 +128,7 @@ public class RequestHandler implements HttpHandler {
 			itemData.put("templateId", item.getTemplateId());
 			
 			itemData.put("rarity", item.getRarity());
-			itemData.put("ql", numberFormat.format(item.getCurrentQualityLevel()));
+			itemData.put("ql", numberFormat.format(item.getQualityLevel()));
 			itemData.put("dmg", numberFormat.format(item.getDamage()));
 			
 			itemData.put("weight", numberFormat.format(item.getWeightGrams(true) / 1000.0));
