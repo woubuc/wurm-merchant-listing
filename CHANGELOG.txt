@@ -1,0 +1,13 @@
+Merchant Listing v0.1.2
+-----------------------
+Fixed:   QL column now displays correct ql value (#3)
+Fixed:   Coordinates now use tiles instead of server coordinates (#2)
+Changed: Template is now kept in memory instead of loading it again on each listing request
+
+Merchant Listing v0.1.1
+-----------------------
+Fixed:   "Get Listing" option now always shows, and not just when no item activated
+
+Merchant Listing v0.1.0
+-----------------------
+Added:   The first basic implementation of the mod
