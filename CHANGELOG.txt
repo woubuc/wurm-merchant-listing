@@ -1,3 +1,9 @@
+Merchant Listing v0.2.0
+-----------------------
+Added:   Sort the columns by clicking the column headers
+Added:   Filter the inventory items to find exactly what you need
+Changed: Template rendering now happens in the client instead of on the server
+
 Merchant Listing v0.1.2
 -----------------------
 Fixed:   QL column now displays correct ql value (#3)
