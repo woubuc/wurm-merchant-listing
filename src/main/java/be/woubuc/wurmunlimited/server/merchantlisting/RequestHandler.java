@@ -1,7 +1,5 @@
 package be.woubuc.wurmunlimited.server.merchantlisting;
 
-import com.samskivert.mustache.Mustache;
-import com.samskivert.mustache.Template;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -11,12 +9,12 @@ import com.wurmonline.server.economy.Economy;
 import com.wurmonline.server.economy.Shop;
 import com.wurmonline.server.items.Item;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.io.IOUtils;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -27,7 +25,7 @@ public class RequestHandler implements HttpHandler {
 	
 	private final DecimalFormat priceFormat;
 	private final DecimalFormat numberFormat;
-	private final Template template;
+	private final String template;
 	
 	RequestHandler() {
 		final DecimalFormatSymbols symbols = new DecimalFormatSymbols();
@@ -35,11 +33,13 @@ public class RequestHandler implements HttpHandler {
 		priceFormat = new DecimalFormat("##0.00##", symbols);
 		numberFormat = new DecimalFormat("#0.00", symbols);
 		
-		// Load mustache template and create render function
-		final InputStream templateStream = getClass().getResourceAsStream("/template.html");
-		if (templateStream == null) throw new RuntimeException("Could not read template resource");
-		InputStreamReader reader = new InputStreamReader(templateStream);
-		template = Mustache.compiler().compile(reader);
+		// Load template file contents
+		try {
+			final InputStream templateStream = getClass().getResourceAsStream("/template.html");
+			template = IOUtils.toString(templateStream);
+		} catch (IOException e) {
+			throw new RuntimeException("Could not load template resource");
+		}
 	}
 	
 	@Override
@@ -48,40 +48,43 @@ public class RequestHandler implements HttpHandler {
 		final String hashid = FilenameUtils.getBaseName(url);
 		final String ext = FilenameUtils.getExtension(url);
 		
-		final long wurmId = MerchantListingMod.hashids.decode(hashid)[0];
-		
 		// Prepare response
 		String responseData = "";
 		String contentType = "text/plain";
 		int responseCode = 200;
 		
-		// Get merchant creature
-		Creature merchant = null;
-		try {
-			merchant = Creatures.getInstance().getCreature(wurmId);
-			if (!merchant.isNpcTrader()) throw new RuntimeException(); // Throw and catch to return a 404
-		} catch (Exception e) {
-			responseData = "Merchant not found";
-			responseCode = 404;
-		}
+		final long[] wurmId = MerchantListingMod.hashids.decode(hashid);
 		
-		// Get the shop (the merchant settings)
-		Shop shop = Economy.getEconomy().getShop(merchant);
-		
-		if (merchant != null) {
-			// Load data
-			final JSONObject inventoryData = getInventoryData(hashid, merchant, shop);
+		if (wurmId.length == 0) {
+			responseData = "Invalid token";
+			responseCode = 400;
 			
-			// Check which data type we should send (default to a HTML page)
-			switch (ext) {
-				case "json":
-					responseData = inventoryData.toJSONString();
-					contentType = "application/json";
-					break;
-				default:
-					responseData = template.execute(inventoryData);
-					contentType = "text/html";
-					break;
+		} else {
+			// Get merchant creature
+			Creature merchant = null;
+			try {
+				merchant = Creatures.getInstance().getCreature(wurmId[0]);
+				if (!merchant.isNpcTrader()) throw new RuntimeException(); // Throw and catch to return a 404
+			} catch (Exception e) {
+				responseData = "Merchant not found";
+				responseCode = 404;
+			}
+			
+			// Get the shop (the merchant settings)
+			Shop shop = Economy.getEconomy().getShop(merchant);
+			
+			if (merchant != null) {
+				// Check which data type we should send (default to the HTML template page)
+				switch (ext) {
+					case "json":
+						responseData = getInventoryData(hashid, merchant, shop);
+						contentType = "application/json";
+						break;
+					default:
+						responseData = template;
+						contentType = "text/html";
+						break;
+				}
 			}
 		}
 		
@@ -104,12 +107,11 @@ public class RequestHandler implements HttpHandler {
 	 * @return The inventory data object
 	 */
 	@SuppressWarnings("unchecked")
-	private JSONObject getInventoryData(String hashid, Creature merchant, Shop shop) {
+	private String getInventoryData(String hashid, Creature merchant, Shop shop) {
 		JSONObject data = new JSONObject();
 		JSONArray items = new JSONArray();
 		
 		List<Item> inventory = new ArrayList(merchant.getInventory().getItems());
-		inventory.sort((a, b) -> (a.getName().compareTo(b.getName())));
 		
 		data.put("id", hashid);
 		data.put("name", merchant.getName().substring(9));
@@ -129,12 +131,17 @@ public class RequestHandler implements HttpHandler {
 			JSONObject itemData = new JSONObject();
 			
 			itemData.put("name", Util.formatItemName(item));
+			itemData.put("sortName", item.getName());
 			itemData.put("description", item.getDescription().length() == 0 ? null : item.getDescription());
 			itemData.put("templateId", item.getTemplateId());
 			
 			itemData.put("rarity", item.getRarity());
+			
 			itemData.put("ql", numberFormat.format(item.getQualityLevel()));
+			itemData.put("rawQl", item.getQualityLevel());
+			
 			itemData.put("dmg", numberFormat.format(item.getDamage()));
+			itemData.put("rawDmg", item.getDamage());
 			
 			itemData.put("weight", numberFormat.format(item.getWeightGrams(true) / 1000.0));
 			itemData.put("rawWeight", item.getWeightGrams(true));
@@ -150,6 +157,6 @@ public class RequestHandler implements HttpHandler {
 		}
 		data.put("inventory", items);
 		
-		return data;
+		return data.toJSONString();
 	}
 }
