@@ -115,8 +115,8 @@ public class RequestHandler implements HttpHandler {
 		}
 		data.put("village", village);
 		
-		data.put("x", (int) merchant.getPosX());
-		data.put("y", (int) merchant.getPosY());
+		data.put("x", Math.floorDiv((int) merchant.getPosX(), 4));
+		data.put("y", Math.floorDiv((int) merchant.getPosY(), 4));
 		
 		for (Item item : inventory) {
 			if (item.isCoin()) continue; // Coins should not show up in merchant inventory
