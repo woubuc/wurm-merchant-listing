@@ -1,6 +1,7 @@
 package be.woubuc.wurmunlimited.server.merchantlisting;
 
 import com.samskivert.mustache.Mustache;
+import com.samskivert.mustache.Template;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -21,18 +22,24 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Logger;
 
 public class RequestHandler implements HttpHandler {
 	
 	private final DecimalFormat priceFormat;
 	private final DecimalFormat numberFormat;
+	private final Template template;
 	
 	RequestHandler() {
 		final DecimalFormatSymbols symbols = new DecimalFormatSymbols();
 		symbols.setDecimalSeparator(',');
 		priceFormat = new DecimalFormat("##0.00##", symbols);
 		numberFormat = new DecimalFormat("#0.00", symbols);
+		
+		// Load mustache template and create render function
+		final InputStream templateStream = getClass().getResourceAsStream("/template.html");
+		if (templateStream == null) throw new RuntimeException("Could not read template resource");
+		InputStreamReader reader = new InputStreamReader(templateStream);
+		template = Mustache.compiler().compile(reader);
 	}
 	
 	@Override
@@ -58,23 +65,21 @@ public class RequestHandler implements HttpHandler {
 			responseCode = 404;
 		}
 		
-		// Get shop
+		// Get the shop (the merchant settings)
 		Shop shop = Economy.getEconomy().getShop(merchant);
 		
 		if (merchant != null) {
+			// Load data
+			final JSONObject inventoryData = getInventoryData(hashid, merchant, shop);
+			
 			// Check which data type we should send (default to a HTML page)
 			switch (ext) {
 				case "json":
-					responseData = getInventoryData(hashid, merchant, shop).toJSONString();
+					responseData = inventoryData.toJSONString();
 					contentType = "application/json";
 					break;
 				default:
-					InputStream template = getClass().getResourceAsStream("/template.html");
-					if (template == null) throw new RuntimeException("Template not found");
-					
-					InputStreamReader reader = new InputStreamReader(template);
-					responseData = Mustache.compiler().compile(reader).execute(getInventoryData(hashid, merchant, shop));
-					
+					responseData = template.execute(inventoryData);
 					contentType = "text/html";
 					break;
 			}
