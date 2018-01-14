@@ -158,16 +158,12 @@
 						var key = this.sortKey;
 						var direction = this.sortDirection;
 
-						var res = this.inventory.sort(function(a, b) {
-							console.log(a, 'vs', b, 'sorted by', key);
-							console.log(a[key], 'vs', b[key]);
+						return this.inventory.sort(function(a, b) {
 							if (!a[key] || !b[key]) return 0;
 							if (a[key] < b[key]) return -direction;
 							if (a[key] > b[key]) return direction;
 							return 0;
 						});
-						console.log('Sorted:', JSON.stringify(res, null, 2));
-						return res;
 					},
 					jsonLink: function() { return this.id + '.json'; }
 				},
@@ -184,7 +180,7 @@
 							this.sortDirection = -this.sortDirection;
 						} else {
 							this.sortKey = key;
-							this.sortDirection = 1;
+							this.sortDirection = (key === 'sortName' ? 1 : -1);
 						}
 					}
 				}
