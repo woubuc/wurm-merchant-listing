@@ -55,6 +55,9 @@
 
         tr.empty { background:#f4f4f4; }
         tr.empty td { padding:10px 0; text-align:center; }
+
+		input.filter { display:block; width:80%; max-width:240px; margin:10px auto; padding:6px 14px;
+			border:1px solid #e4e4e4; border-radius:3px; }
     </style>
 
 </head>
@@ -66,6 +69,9 @@
 
 			<p v-if="village">Located at {{village}} ({{x}}x {{y}}y)</p>
 			<p v-if="!village">Located at {{x}}x {{y}}y</p>
+
+			<!-- Search box -->
+			<input type="text" class="filter" ref="filter" placeholder="Filter items" v-model="filterQuery">
 
 			<!-- Start inventory listing -->
 	        <table>
@@ -80,8 +86,11 @@
 				<!-- Empty state -->
 	            <tr class="empty" v-if="inventory.length < 1"><td class="name" colspan="5">This merchant has no inventory</td></tr>
 
+				<!-- Empty filter state -->
+	            <tr class="empty" v-if="inventory.length > 0 && sortedInventory.length < 1"><td class="name" colspan="5">No items found in this merchant's inventory for <span class="description">'{{filterQuery}}'</span></td></tr>
+
 				<!-- Item loop (component template below) -->
-				<tr is="inventory-item" v-if="inventory.length > 0" v-for="item in sortedInventory" :item="item"></tr>
+				<tr is="inventory-item" v-if="sortedInventory.length > 0" v-for="item in sortedInventory" :item="item"></tr>
 	        </table>
 
 			<!-- Footer info -->
@@ -150,19 +159,25 @@
 					inventory: data.inventory,
 
 					sortKey: 'sortName',
-					sortDirection: 1
+					sortDirection: 1,
+
+					filterQuery: ''
 				},
 
 				computed: {
 					sortedInventory: function() {
 						var key = this.sortKey;
 						var direction = this.sortDirection;
+						var filter = this.filterQuery;
 
 						return this.inventory.sort(function(a, b) {
 							if (!a[key] || !b[key]) return 0;
 							if (a[key] < b[key]) return -direction;
 							if (a[key] > b[key]) return direction;
 							return 0;
+						}).filter(function(i) {
+							if (filter === '') return true;
+							return i.name.toLowerCase().indexOf(filter) > -1;
 						});
 					},
 					jsonLink: function() { return this.id + '.json'; }
@@ -183,6 +198,10 @@
 							this.sortDirection = (key === 'sortName' ? 1 : -1);
 						}
 					}
+				},
+
+				mounted: function() {
+					this.$refs.filter.focus();
 				}
 			});
 
